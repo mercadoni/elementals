@@ -1,0 +1,24 @@
+{
+  "name": "@mercadoni/elementals",
+  "version": "0.1.0",
+  "description": "Building blocks for NodeJS services",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mercadoni/elementals.git"
+  },
+  "author": "Carlos Rodríguez <cerodriguezl@gmail.com>",
+  "bugs": {
+    "url": "https://github.com/mercadoni/elementals/issues"
+  },
+  "homepage": "https://github.com/mercadoni/elementals#readme",
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "dependencies": {
+    "amqp-connection-manager": "^2.2.0",
+    "amqplib": "^0.5.2",
+    "nconf": "^0.10.0",
+    "verror": "^1.10.0",
+    "winston": "^3.1.0"
+  }
+}
