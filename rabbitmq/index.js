@@ -5,8 +5,13 @@ const logger = require('../logger')('rabbitmq')
 const config = require('../config')
 
 module.exports = (configName) => {
-  const conf = config.get(configName)
-  const url = `amqp://${conf.username}:${conf.password}@${conf.host}:${conf.port}`
+  let url
+  if (process.env.RABBIT_URI && !configName) {
+    url = process.env.RABBIT_URI
+  } else {
+    const conf = config.get(configName)
+    url = `amqp://${conf.username}:${conf.password}@${conf.host}:${conf.port}`
+  }
 
   const connection = amqp.connect([url])
   const publisherChannelWrapper = connection.createChannel({ json: true })
