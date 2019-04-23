@@ -10,7 +10,7 @@ module.exports = (configName) => {
 
   const connection = amqp.connect([url])
   const publisherChannelWrapper = connection.createChannel({ json: true })
-  connection.on('connect', params => logger.info(`Connected to ${params.url}`))
+  connection.on('connect', params => logger.info(`Connected to ${conf.host}`))
   connection.on('disconnect', params => logger.error(`Disconnected. ${params.err.stack}`))
 
   const addListener = (channelConfig) => {
