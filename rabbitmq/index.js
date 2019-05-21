@@ -6,11 +6,11 @@ const config = require('../config')
 
 module.exports = (configName) => {
   const conf = config.get(configName)
-  const url = `amqp://${conf.username}:${conf.password}@${conf.host}:${conf.port}`
-
-  const connection = amqp.connect([url])
+  const hosts = conf.host.split(',')
+  const urls = hosts.map(host => `amqp://${conf.username}:${conf.password}@${host}`)
+  const connection = amqp.connect(urls)
   const publisherChannelWrapper = connection.createChannel({ json: true })
-  connection.on('connect', params => logger.info(`Connected to ${conf.host}`))
+  connection.on('connect', _params => logger.info(`Connected to ${hosts}`))
   connection.on('disconnect', params => logger.error(`Disconnected. ${params.err.stack}`))
 
   const addListener = (channelConfig) => {
