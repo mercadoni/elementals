@@ -4,7 +4,10 @@
   "description": "Building blocks for NodeJS services",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mercadoni/elementals.git"
+    "url": "git://github.com/mercadoni/elementals.git"
+  },
+  "publishConfig": {
+    "registry":"https://npm.pkg.github.com/"
   },
   "author": "Carlos Rodríguez <cerodriguezl@gmail.com>",
   "bugs": {
