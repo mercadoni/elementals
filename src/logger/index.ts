@@ -1,10 +1,31 @@
 import { createLogger, format, transports } from 'winston'
-import config from '../config'
 import { VError } from 'verror'
-const { combine, timestamp, label, simple, colorize, json } = format
+import logfmt from 'logfmt'
+import flat from 'flat'
+import config from '../config'
+const { combine, timestamp, label, printf, colorize, json } = format
 
 const level = config.get('log_level') || 'debug'
 const devLog = config.get('dev_log')
+
+export const formats = (tag: string) => {
+  return {
+    logfmt: combine(
+      label({ label: tag }),
+      timestamp(),
+      colorize(),
+      printf(info => {
+        const { timestamp, label, level, message, ...data } = info
+        return `[${timestamp}] ${level} ${message} label=${label} ${logfmt.stringify(flat(data))}`
+      })
+    ),
+    json: combine(
+      label({ label: tag }),
+      timestamp(),
+      json()
+    )
+  }
+}
 
 interface Logger {
   debug: (message: string, data?: any) => void
@@ -13,19 +34,11 @@ interface Logger {
 }
 
 const logger = (tag: string): Logger => {
-  const formats = [
-    label({ label: tag }),
-    timestamp()
-  ]
-  if (devLog) {
-    formats.push(colorize())
-    formats.push(simple())
-  } else {
-    formats.push(json())
-  }
+  const taggedFormats = formats(tag)
+  const format = devLog ? taggedFormats.logfmt : taggedFormats.json
   const log = createLogger({
     level,
-    format: combine(...formats),
+    format,
     transports: [new transports.Console()]
   })
   const error = (message: string, data: any, err: Error) => {
