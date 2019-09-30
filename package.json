@@ -26,7 +26,7 @@
     "@types/flat": "0.0.28",
     "@types/logfmt": "^1.2.1",
     "@types/nconf": "^0.10.0",
-    "@types/node": "^12.7.4",
+    "@types/node": "^12.7.8",
     "@types/node-schedule": "^1.2.4",
     "@types/verror": "^1.10.3",
     "amqp-connection-manager": "^2.3.3",
@@ -40,11 +40,11 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^2.1.0",
-    "@typescript-eslint/parser": "^2.1.0",
-    "eslint": "^6.3.0",
-    "standard": "^14.1.0",
-    "typescript": "^3.6.2"
+    "@typescript-eslint/eslint-plugin": "^2.3.1",
+    "@typescript-eslint/parser": "^2.3.1",
+    "eslint": "^6.5.0",
+    "standard": "^14.3.1",
+    "typescript": "^3.6.3"
   },
   "eslintConfig": {
     "env": {
