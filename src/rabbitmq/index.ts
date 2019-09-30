@@ -87,7 +87,7 @@ const wrapper = (configName: string) => {
     channelWrapper.on('connect', reportConnection)
   }
 
-  const publish = async (exchange: string, type: string, routingKey: string, data: Buffer) => {
+  const publish = async (exchange: string, type: string, routingKey: string, data: any) => {
     try {
       await publisherChannelWrapper.addSetup((channel: ConfirmChannel) => {
         channel.assertExchange(exchange, type)
