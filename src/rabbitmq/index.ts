@@ -20,9 +20,8 @@ const wrapper = (configName: string) => {
   const urls = hosts.map(host => `amqp://${conf.username}:${conf.password}@${host}`)
   const connection = amqp.connect(urls)
   const publisherChannelWrapper = connection.createChannel({ json: true })
-  connection.on('connect', params => {
-    const url = params.url
-    logger.info('Connected to RabbitMQ', { url })
+  connection.on('connect', _params => {
+    logger.info('Connected to RabbitMQ', { hosts, username: conf.username })
   })
   connection.on('disconnect', ({ err }) => logger.error('Connection error', {}, err))
 
