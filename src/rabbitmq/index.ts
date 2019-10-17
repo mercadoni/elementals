@@ -1,9 +1,29 @@
 import amqp from 'amqp-connection-manager'
 import { ConfirmChannel, ConsumeMessage } from 'amqplib'
+import { Counter } from 'prom-client'
 import Logger from '../logger'
 import config from '../config'
 
 const logger = Logger('rabbitmq')
+
+const totalMessages = new Counter({
+  name: 'elementals_amqp_messages_total',
+  help: 'Messages processed',
+  labelNames: ['queue']
+})
+const failedMessages = new Counter({
+  name: 'elementals_amqp_messages_errors_total',
+  help: 'Errors found',
+  labelNames: ['queue']
+})
+
+const countMessage = (queue: string) => {
+  totalMessages.inc({ queue }, 1, Date.now())
+}
+
+const countError = (queue: string) => {
+  failedMessages.inc({ queue }, 1, Date.now())
+}
 
 interface ChannelConfig {
   inputExchange: string,
@@ -20,7 +40,7 @@ const wrapper = (configName: string) => {
   const urls = hosts.map(host => `amqp://${conf.username}:${conf.password}@${host}`)
   const connection = amqp.connect(urls)
   const publisherChannelWrapper = connection.createChannel({ json: true })
-  connection.on('connect', _params => {
+  connection.on('connect', () => {
     logger.info('Connected to RabbitMQ', { hosts, username: conf.username })
   })
   connection.on('disconnect', ({ err }) => logger.error('Connection error', {}, err))
@@ -35,18 +55,21 @@ const wrapper = (configName: string) => {
 
     const onMessage = async (message: ConsumeMessage | null) => {
       if (message !== null) {
+        countMessage(inputQueue)
         try {
           const eventData = JSON.parse(message.content.toString())
           try {
             await channelConfig.processor(eventData, message)
             channelWrapper.ack(message)
           } catch (err) {
+            countError(inputQueue)
             const errorMessage = 'RabbitMQ event processing failed'
             const context = Object.assign(message, { content: eventData })
             logger.error(errorMessage, context, err)
             channelWrapper.nack(message, false, false)
           }
         } catch (err) {
+          countError(inputQueue)
           const errorMessage = 'RabbitMQ event processing failed'
           logger.error(errorMessage, message, err)
           channelWrapper.nack(message, false, false)

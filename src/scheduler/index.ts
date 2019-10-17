@@ -4,7 +4,7 @@ import Logger from '../logger'
 const logger = Logger('scheduler')
 
 const runTask = (f: any): JobCallback => {
-  return async (_scheduledTime) => {
+  return async () => {
     logger.debug(`Running [${f.name}] task...`)
     try {
       await f()
