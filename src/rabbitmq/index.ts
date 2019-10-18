@@ -6,23 +6,44 @@ import config from '../config'
 
 const logger = Logger('rabbitmq')
 
-const totalMessages = new Counter({
-  name: 'elementals_amqp_messages_total',
+const totalIncomingMessages = new Counter({
+  name: 'elementals_amqp_incoming_total',
   help: 'Messages processed',
   labelNames: ['queue']
 })
-const failedMessages = new Counter({
-  name: 'elementals_amqp_messages_errors_total',
+
+const failedIncomingMessages = new Counter({
+  name: 'elementals_amqp_incoming_errors_total',
   help: 'Errors found',
   labelNames: ['queue']
 })
 
-const countMessage = (queue: string) => {
-  totalMessages.inc({ queue }, 1, Date.now())
+const totalOutgoingMessages = new Counter({
+  name: 'elementals_amqp_outgoing_total',
+  help: 'Messages produced',
+  labelNames: ['exchange', 'routingKey']
+})
+
+const failedOutgoingMessages = new Counter({
+  name: 'elementals_amqp_outgoing_errors_total',
+  help: 'Errors found',
+  labelNames: ['exchange', 'routingKey']
+})
+
+const countIncomingMessage = (queue: string) => {
+  totalIncomingMessages.inc({ queue }, 1, Date.now())
 }
 
-const countError = (queue: string) => {
-  failedMessages.inc({ queue }, 1, Date.now())
+const countIncomingError = (queue: string) => {
+  failedIncomingMessages.inc({ queue }, 1, Date.now())
+}
+
+const countOutgoingMessage = (exchange: string, routingKey: string) => {
+  totalOutgoingMessages.inc({ exchange, routingKey }, 1, Date.now())
+}
+
+const countOutgoingError = (exchange: string, routingKey: string) => {
+  failedOutgoingMessages.inc({ exchange, routingKey }, 1, Date.now())
 }
 
 interface ChannelConfig {
@@ -55,21 +76,21 @@ const wrapper = (configName: string) => {
 
     const onMessage = async (message: ConsumeMessage | null) => {
       if (message !== null) {
-        countMessage(inputQueue)
+        countIncomingMessage(inputQueue)
         try {
           const eventData = JSON.parse(message.content.toString())
           try {
             await channelConfig.processor(eventData, message)
             channelWrapper.ack(message)
           } catch (err) {
-            countError(inputQueue)
+            countIncomingError(inputQueue)
             const errorMessage = 'RabbitMQ event processing failed'
             const context = Object.assign(message, { content: eventData })
             logger.error(errorMessage, context, err)
             channelWrapper.nack(message, false, false)
           }
         } catch (err) {
-          countError(inputQueue)
+          countIncomingError(inputQueue)
           const errorMessage = 'RabbitMQ event processing failed'
           logger.error(errorMessage, message, err)
           channelWrapper.nack(message, false, false)
@@ -111,6 +132,7 @@ const wrapper = (configName: string) => {
 
   const publish = async (exchange: string, type: string, routingKey: string, data: any) => {
     try {
+      countOutgoingMessage(exchange, routingKey)
       await publisherChannelWrapper.addSetup((channel: ConfirmChannel) => {
         channel.assertExchange(exchange, type)
       })
@@ -119,6 +141,7 @@ const wrapper = (configName: string) => {
       const context = { body: data, exchange, routingKey }
       logger.info(message, context)
     } catch (err) {
+      countOutgoingError(exchange, routingKey)
       const errorMessage = 'RabbitMQ message publishing failed'
       const context = { body: data, exchange, routingKey }
       logger.error(errorMessage, context, err)
