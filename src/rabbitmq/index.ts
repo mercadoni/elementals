@@ -58,7 +58,8 @@ interface ChannelConfig {
 const wrapper = (configName: string) => {
   const conf = config.get(configName)
   const hosts: string[] = conf.host.split(',')
-  const urls = hosts.map(host => `amqp://${conf.username}:${conf.password}@${host}`)
+  const protocol = conf.protocol || 'amqp'
+  const urls = hosts.map(host => `${protocol}://${conf.username}:${conf.password}@${host}`)
   const connection = amqp.connect(urls)
   const publisherChannelWrapper = connection.createChannel({ json: true })
   connection.on('connect', () => {
