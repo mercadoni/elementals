@@ -55,17 +55,20 @@ interface ChannelConfig {
   processor: (eventData: any, message: ConsumeMessage) => Promise<any>
 }
 
-const wrapper = (configName: string) => {
+interface RabbitMQ {
+  addListener: (channelConfig: ChannelConfig) => void
+  publish: (exchange: string, type: string, routingKey: string, data: any) => Promise<void>
+}
+
+const wrapper = (configName: string): RabbitMQ => {
   const conf = config.get(configName)
   const hosts: string[] = conf.host.split(',')
   const protocol = conf.protocol || 'amqps'
   const urls = hosts.map(host => `${protocol}://${conf.username}:${conf.password}@${host}`)
   const connection = amqp.connect(urls)
   const publisherChannelWrapper = connection.createChannel({ json: true })
-  connection.on('connect', () => {
-    logger.info('Connected to RabbitMQ', { protocol, hosts, username: conf.username })
-  })
-  connection.on('disconnect', ({ err }) => logger.error('Connection error', {}, err))
+  connection.on('connect', () => logger.info('Connected', { protocol, hosts, username: conf.username }))
+  connection.on('disconnect', ({ err }) => logger.error('Disconnected', {}, err))
 
   const addListener = (channelConfig: ChannelConfig) => {
     const inputExchange = channelConfig.inputExchange
