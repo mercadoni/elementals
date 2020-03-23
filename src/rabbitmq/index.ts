@@ -159,4 +159,5 @@ const wrapper = (configName: string): RabbitMQ => {
   }
 }
 
+export type { RabbitMQ, ChannelConfig }
 export default wrapper
