@@ -51,7 +51,8 @@ interface ChannelConfig {
   inputExchangeType?: string,
   inputQueue: string
   pattern: string,
-  errorExchange: string
+  errorExchange: string,
+  prefetch?: number,
   processor: (eventData: any, message: ConsumeMessage) => Promise<any>
 }
 
@@ -77,6 +78,7 @@ const wrapper = (configName: string): RabbitMQ => {
     const pattern = channelConfig.pattern
     const errorExchange = channelConfig.errorExchange
     const errorQueue = `${inputQueue}_errors`
+    const prefetch = channelConfig.prefetch ?? 1
 
     const onMessage = async (message: ConsumeMessage | null) => {
       if (message !== null) {
@@ -118,7 +120,7 @@ const wrapper = (configName: string): RabbitMQ => {
             deadLetterExchange: errorExchange,
             deadLetterRoutingKey: inputQueue
           }),
-          channel.prefetch(1),
+          channel.prefetch(prefetch),
           channel.bindQueue(inputQueue, inputExchange, pattern),
           channel.bindQueue(errorQueue, errorExchange, inputQueue),
           registerConsumer(channel)
