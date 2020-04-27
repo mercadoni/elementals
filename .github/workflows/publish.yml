@@ -17,3 +17,5 @@ jobs:
       run: npm run build
     - name: Publish
       run: npm run dist
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
