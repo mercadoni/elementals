@@ -6,7 +6,8 @@ import config from '../config'
 const { combine, timestamp, label, printf, colorize, json } = format
 
 const level = config.get('log_level') || 'debug'
-const devLog = config.get('dev_log')
+const logFormat = config.get('log_format')
+const maxDepth = config.get('log_max_depth') ?? 3
 
 export const formats = (tag: string) => {
   return {
@@ -16,7 +17,10 @@ export const formats = (tag: string) => {
       colorize(),
       printf(info => {
         const { timestamp, label, level, message, ...data } = info
-        return `[${timestamp}] ${level} ${message} label=${label} ${logfmt.stringify(flat(data))}`
+        const logData = { ...data.data, stacktrace: data.stacktrace }
+        Object.keys(logData).forEach(key => logData[key] === undefined && delete logData[key])
+        const logOptions = { maxDepth }
+        return `[${timestamp}] ${message} level=${level} label=${label} ${logfmt.stringify(flat(logData, logOptions))}`
       })
     ),
     json: combine(
@@ -35,7 +39,7 @@ interface Logger {
 
 const logger = (tag: string): Logger => {
   const taggedFormats = formats(tag)
-  const format = devLog ? taggedFormats.logfmt : taggedFormats.json
+  const format = logFormat === 'logfmt' ? taggedFormats.logfmt : taggedFormats.json
   const log = createLogger({
     level,
     format,
@@ -43,13 +47,13 @@ const logger = (tag: string): Logger => {
   })
   const error = (message: string, data: any, err: Error) => {
     const stacktrace = VError.fullStack(err)
-    log.error({ message, data, stacktrace })
+    log.error(message, { data, stacktrace })
   }
   const info = (message: string, data?: any) => {
-    log.info({ message, data })
+    log.info(message, { data })
   }
   const debug = (message: string, data?: any) => {
-    log.debug({ message, data })
+    log.debug(message, { data })
   }
   return { debug, info, error }
 }
