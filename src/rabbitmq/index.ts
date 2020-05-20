@@ -52,6 +52,8 @@ interface ExchangeConfig {
   options?: Options.AssertExchange
 }
 
+type MessageProcessor = (eventData: any, message: ConsumeMessage) => Promise<any>
+
 interface ChannelConfig {
   inputExchange: ExchangeConfig,
   inputQueue: string
@@ -59,16 +61,24 @@ interface ChannelConfig {
   errorExchange: string,
   errorQueue?: string,
   prefetch?: number,
-  processor: (eventData: any, message: ConsumeMessage) => Promise<any>
+  processor: MessageProcessor
+}
+
+interface ConsumerOptions extends Options.Consume {
+  prefetch?: number
 }
 
 interface RabbitMQ {
+  /**
+  * @deprecated since version 0.7.0. Use consumer instead
+  */
   addListener: (channelConfig: ChannelConfig) => void
   /**
   * @deprecated since version 0.7.0. Use publisher instead
   */
   publish: (exchange: string, type: string, routingKey: string, data: any) => Promise<void>
-  publisher: (exchange: string) => Promise<Publisher>
+  consumer: (queue: string, options: ConsumerOptions, processor: MessageProcessor) => void
+  publisher: (exchange: string) => Publisher
 }
 
 interface Publisher {
@@ -166,7 +176,47 @@ const wrapper = (configName: string): RabbitMQ => {
     }
   }
 
-  const publisher = async (exchange: string) => {
+  const consumer = (queue: string, options: ConsumerOptions, processor: MessageProcessor) => {
+    const prefetch = options.prefetch ?? 1
+    const onMessage = async (message: ConsumeMessage | null) => {
+      if (message !== null) {
+        countIncomingMessage(queue)
+        const contentAsString = message.content.toString()
+        try {
+          const eventData = JSON.parse(contentAsString)
+          try {
+            await processor(eventData, message)
+            consumerChannel.ack(message)
+          } catch (err) {
+            countIncomingError(queue)
+            const context = Object.assign(message, { content: eventData })
+            logger.error('processing_failed', context, err)
+            consumerChannel.nack(message, false, false)
+          }
+        } catch (err) {
+          countIncomingError(queue)
+          const context = Object.assign(message, { content: contentAsString })
+          logger.error('parsing_failed', context, err)
+          consumerChannel.nack(message, false, false)
+        }
+      }
+    }
+    const consumerChannel = consumerConnection.createChannel({
+      json: true,
+      setup: (channel: ConfirmChannel) => {
+        return Promise.all([
+          channel.checkQueue(queue),
+          channel.prefetch(prefetch),
+          channel.consume(queue, onMessage, options)
+        ])
+      }
+    })
+    consumerChannel.on('connect', () => {
+      logger.info('consumer_running', { queue })
+    })
+  }
+
+  const publisher = (exchange: string) => {
     const publisherChannel = publisherConnection.createChannel({
       json: true,
       setup: (channel: ConfirmChannel) => {
@@ -195,6 +245,7 @@ const wrapper = (configName: string): RabbitMQ => {
   return {
     addListener,
     publish,
+    consumer,
     publisher
   }
 }
