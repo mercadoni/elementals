@@ -1,6 +1,6 @@
 {
   "name": "@mercadoni/elementals",
-  "version": "0.7.0-alpha.0",
+  "version": "0.7.0-alpha.1",
   "description": "Building blocks for NodeJS services",
   "repository": {
     "type": "git",
