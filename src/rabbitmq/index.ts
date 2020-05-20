@@ -122,7 +122,7 @@ const wrapper = (configName: string): RabbitMQ => {
     const channelWrapper = consumerConnection.createChannel({
       json: true,
       setup: (channel: ConfirmChannel) => {
-        Promise.all([
+        return Promise.all([
           channel.assertExchange(errorExchange, 'topic'),
           channel.assertQueue(errorQueue, { durable: true }),
           channel.assertExchange(inputExchange.name, inputExchange.type || 'topic', inputExchange.options),
@@ -150,7 +150,7 @@ const wrapper = (configName: string): RabbitMQ => {
       const publisherChannel = publisherConnection.createChannel({
         json: true,
         setup: (channel: ConfirmChannel) => {
-          channel.assertExchange(exchange, type)
+          return channel.assertExchange(exchange, type)
         }
       })
       await publisherChannel.publish(exchange, routingKey, data, { contentType: 'application/json', persistent: true })
@@ -170,7 +170,7 @@ const wrapper = (configName: string): RabbitMQ => {
     const publisherChannel = publisherConnection.createChannel({
       json: true,
       setup: (channel: ConfirmChannel) => {
-        channel.checkExchange(exchange)
+        return channel.checkExchange(exchange)
       }
     })
     const publish = async (routingKey: string, data: any, options?: Options.Publish) => {
