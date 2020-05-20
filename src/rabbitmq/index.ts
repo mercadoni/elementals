@@ -1,5 +1,5 @@
-import amqp from 'amqp-connection-manager'
-import { ConfirmChannel, ConsumeMessage } from 'amqplib'
+import amqp, { AmqpConnectionManager } from 'amqp-connection-manager'
+import { ConfirmChannel, ConsumeMessage, Options } from 'amqplib'
 import { Counter } from 'prom-client'
 import Logger from '../logger'
 import config from '../config'
@@ -46,103 +46,114 @@ const countOutgoingError = (exchange: string, routingKey: string) => {
   failedOutgoingMessages.inc({ exchange, routingKey }, 1, Date.now())
 }
 
+interface ExchangeConfig {
+  name: string,
+  type?: string,
+  options?: Options.AssertExchange
+}
+
 interface ChannelConfig {
-  inputExchange: string,
-  inputExchangeType?: string,
+  inputExchange: ExchangeConfig,
   inputQueue: string
   pattern: string,
   errorExchange: string,
+  errorQueue?: string,
   prefetch?: number,
   processor: (eventData: any, message: ConsumeMessage) => Promise<any>
 }
 
 interface RabbitMQ {
   addListener: (channelConfig: ChannelConfig) => void
+  /**
+  * @deprecated since version 0.7.0. Use publisher instead
+  */
   publish: (exchange: string, type: string, routingKey: string, data: any) => Promise<void>
+  publisher: (exchange: string) => Promise<Publisher>
 }
 
-const wrapper = (configName: string): RabbitMQ => {
-  const conf = config.get(configName)
+interface Publisher {
+  publish: (routingKey: string, data: any, options?: Options.Publish) => Promise<void>
+}
+
+const newConnection = (conf: any): AmqpConnectionManager => {
   const hosts: string[] = conf.host.split(',')
   const protocol = conf.protocol || 'amqps'
   const urls = hosts.map(host => `${protocol}://${conf.username}:${conf.password}@${host}`)
   const connection = amqp.connect(urls)
-  const publisherChannelWrapper = connection.createChannel({ json: true })
-  connection.on('connect', () => logger.info('Connected', { protocol, hosts, username: conf.username }))
-  connection.on('disconnect', ({ err }) => logger.error('Disconnected', {}, err))
+  connection.on('connect', () => logger.info('connection_established', { protocol, hosts, username: conf.username }))
+  connection.on('disconnect', ({ err }) => logger.error('disconnected', {}, err))
+  return connection
+}
+
+const wrapper = (configName: string): RabbitMQ => {
+  const conf = config.get(configName)
+  const consumerConnection = newConnection(conf)
+  const publisherConnection = newConnection(conf)
 
   const addListener = (channelConfig: ChannelConfig) => {
-    const inputExchange = channelConfig.inputExchange
-    const inputExchangeType = channelConfig.inputExchangeType || 'topic'
-    const inputQueue = channelConfig.inputQueue
-    const pattern = channelConfig.pattern
-    const errorExchange = channelConfig.errorExchange
-    const errorQueue = `${inputQueue}_errors`
+    const { inputExchange, inputQueue, pattern, errorExchange } = channelConfig
+    const errorQueue = channelConfig.errorQueue ?? `${inputQueue}_errors`
     const prefetch = channelConfig.prefetch ?? 1
 
     const onMessage = async (message: ConsumeMessage | null) => {
       if (message !== null) {
         countIncomingMessage(inputQueue)
+        const contentAsString = message.content.toString()
         try {
-          const eventData = JSON.parse(message.content.toString())
+          const eventData = JSON.parse(contentAsString)
           try {
             await channelConfig.processor(eventData, message)
             channelWrapper.ack(message)
           } catch (err) {
             countIncomingError(inputQueue)
-            const errorMessage = 'RabbitMQ event processing failed'
             const context = Object.assign(message, { content: eventData })
-            logger.error(errorMessage, context, err)
+            logger.error('processing_failed', context, err)
             channelWrapper.nack(message, false, false)
           }
         } catch (err) {
           countIncomingError(inputQueue)
-          const errorMessage = 'RabbitMQ event processing failed'
-          logger.error(errorMessage, message, err)
+          const context = Object.assign(message, { content: contentAsString })
+          logger.error('parsing_failed', context, err)
           channelWrapper.nack(message, false, false)
         }
       }
     }
 
-    const registerConsumer = (channel: ConfirmChannel) => {
-      channel.consume(channelConfig.inputQueue, onMessage)
-    }
-
-    const channelWrapper = connection.createChannel({
+    const channelWrapper = consumerConnection.createChannel({
       json: true,
       setup: (channel: ConfirmChannel) => {
         Promise.all([
           channel.assertExchange(errorExchange, 'topic'),
           channel.assertQueue(errorQueue, { durable: true }),
-          channel.assertExchange(inputExchange, inputExchangeType),
+          channel.assertExchange(inputExchange.name, inputExchange.type || 'topic', inputExchange.options),
           channel.assertQueue(inputQueue, {
             durable: true,
             deadLetterExchange: errorExchange,
             deadLetterRoutingKey: inputQueue
           }),
           channel.prefetch(prefetch),
-          channel.bindQueue(inputQueue, inputExchange, pattern),
+          channel.bindQueue(inputQueue, inputExchange.name, pattern),
           channel.bindQueue(errorQueue, errorExchange, inputQueue),
-          registerConsumer(channel)
+          channel.consume(inputQueue, onMessage)
         ])
       }
     })
 
-    const reportConnection = () => {
-      const queue = channelConfig.inputQueue
-      const binding = `${inputExchange} -> ${pattern}`
-      logger.info('Listening for messages', { queue, binding })
-    }
-    channelWrapper.on('connect', reportConnection)
+    channelWrapper.on('connect', () => {
+      logger.info('listener_running', { queue: inputQueue, exchange: inputExchange.name, pattern })
+    })
   }
 
   const publish = async (exchange: string, type: string, routingKey: string, data: any) => {
     try {
       countOutgoingMessage(exchange, routingKey)
-      await publisherChannelWrapper.addSetup((channel: ConfirmChannel) => {
-        channel.assertExchange(exchange, type)
+      const publisherChannel = publisherConnection.createChannel({
+        json: true,
+        setup: (channel: ConfirmChannel) => {
+          channel.assertExchange(exchange, type)
+        }
       })
-      await publisherChannelWrapper.publish(exchange, routingKey, data, { contentType: 'application/json', persistent: true })
+      await publisherChannel.publish(exchange, routingKey, data, { contentType: 'application/json', persistent: true })
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
       logger.info(message, context)
@@ -155,11 +166,38 @@ const wrapper = (configName: string): RabbitMQ => {
     }
   }
 
+  const publisher = async (exchange: string) => {
+    const publisherChannel = publisherConnection.createChannel({
+      json: true,
+      setup: (channel: ConfirmChannel) => {
+        channel.checkExchange(exchange)
+      }
+    })
+    const publish = async (routingKey: string, data: any, options?: Options.Publish) => {
+      try {
+        countOutgoingMessage(exchange, routingKey)
+        const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true }, options)
+        await publisherChannel.publish(exchange, routingKey, data, mergedOptions)
+        const context = { body: data, exchange, routingKey }
+        logger.info('message_published', context)
+      } catch (err) {
+        countOutgoingError(exchange, routingKey)
+        const context = { body: data, exchange, routingKey }
+        logger.error('message_publishing_failed', context, err)
+        throw err
+      }
+    }
+    return {
+      publish
+    }
+  }
+
   return {
     addListener,
-    publish
+    publish,
+    publisher
   }
 }
 
-export type { RabbitMQ, ChannelConfig }
+export type { RabbitMQ, ChannelConfig, ExchangeConfig }
 export default wrapper
