@@ -46,20 +46,14 @@ const countOutgoingError = (exchange: string, routingKey: string) => {
   failedOutgoingMessages.inc({ exchange, routingKey }, 1, Date.now())
 }
 
-interface ExchangeConfig {
-  name: string,
-  type?: string,
-  options?: Options.AssertExchange
-}
-
 type MessageProcessor = (eventData: any, message: ConsumeMessage) => Promise<any>
 
 interface ChannelConfig {
-  inputExchange: ExchangeConfig,
+  inputExchange: string,
+  inputExchangeType?: string,
   inputQueue: string
   pattern: string,
   errorExchange: string,
-  errorQueue?: string,
   prefetch?: number,
   processor: MessageProcessor
 }
@@ -102,7 +96,8 @@ const wrapper = (configName: string): RabbitMQ => {
 
   const addListener = (channelConfig: ChannelConfig) => {
     const { inputExchange, inputQueue, pattern, errorExchange } = channelConfig
-    const errorQueue = channelConfig.errorQueue ?? `${inputQueue}_errors`
+    const inputExchangeType = channelConfig.inputExchangeType || 'topic'
+    const errorQueue = `${inputQueue}_errors`
     const prefetch = channelConfig.prefetch ?? 1
 
     const onMessage = async (message: ConsumeMessage | null) => {
@@ -135,14 +130,14 @@ const wrapper = (configName: string): RabbitMQ => {
         return Promise.all([
           channel.assertExchange(errorExchange, 'topic'),
           channel.assertQueue(errorQueue, { durable: true }),
-          channel.assertExchange(inputExchange.name, inputExchange.type || 'topic', inputExchange.options),
+          channel.assertExchange(inputExchange, inputExchangeType),
           channel.assertQueue(inputQueue, {
             durable: true,
             deadLetterExchange: errorExchange,
             deadLetterRoutingKey: inputQueue
           }),
           channel.prefetch(prefetch),
-          channel.bindQueue(inputQueue, inputExchange.name, pattern),
+          channel.bindQueue(inputQueue, inputExchange, pattern),
           channel.bindQueue(errorQueue, errorExchange, inputQueue),
           channel.consume(inputQueue, onMessage)
         ])
@@ -150,7 +145,7 @@ const wrapper = (configName: string): RabbitMQ => {
     })
 
     channelWrapper.on('connect', () => {
-      logger.info('listener_running', { queue: inputQueue, exchange: inputExchange.name, pattern })
+      logger.info('listener_running', { queue: inputQueue, exchange: inputExchange, pattern })
     })
   }
 
@@ -250,5 +245,5 @@ const wrapper = (configName: string): RabbitMQ => {
   }
 }
 
-export type { RabbitMQ, ChannelConfig, ExchangeConfig }
+export type { RabbitMQ, ChannelConfig }
 export default wrapper
