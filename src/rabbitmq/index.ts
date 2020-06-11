@@ -71,6 +71,7 @@ interface RabbitMQ {
   * @deprecated since version 0.7.0. Use publisher instead
   */
   publish: (exchange: string, type: string, routingKey: string, data: any) => Promise<void>
+  topology: (f: amqp.SetupFunc) => Promise<void>,
   consumer: (queue: string, options: ConsumerOptions, processor: MessageProcessor) => void
   publisher: (exchange: string) => Publisher
 }
@@ -199,6 +200,7 @@ const wrapper = (configName: string): RabbitMQ => {
     const consumerChannel = consumerConnection.createChannel({
       json: true,
       setup: (channel: ConfirmChannel) => {
+        logger.info('consumer_setup', { queue, options })
         return Promise.all([
           channel.checkQueue(queue),
           channel.prefetch(prefetch),
@@ -237,9 +239,25 @@ const wrapper = (configName: string): RabbitMQ => {
     }
   }
 
+  const topology = async (f: amqp.SetupFunc) => {
+    const topologyChannel = consumerConnection.createChannel({
+      json: true,
+      setup: f
+    })
+    topologyChannel.on('close', () => {
+      logger.info('topology_setup_finished')
+    })
+    topologyChannel.on('error', (err: Error, info: any) => {
+      logger.error('topology_setup_failed', err, info)
+    })
+    await topologyChannel.waitForConnect()
+    return topologyChannel.close()
+  }
+
   return {
     addListener,
     publish,
+    topology,
     consumer,
     publisher
   }
