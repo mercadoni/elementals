@@ -8,6 +8,7 @@ const { combine, timestamp, label, printf, colorize, json } = format
 const level = config.get('log_level') || 'debug'
 const logFormat = config.get('log_format')
 const maxDepth = config.get('log_max_depth') ?? 3
+const silent = config.get('log_silent') || false
 
 export const formats = (tag: string) => {
   return {
@@ -43,7 +44,8 @@ const logger = (tag: string): Logger => {
   const log = createLogger({
     level,
     format,
-    transports: [new transports.Console()]
+    transports: [new transports.Console()],
+    silent
   })
   const error = (message: string, data: any, err: Error) => {
     const stacktrace = VError.fullStack(err)
