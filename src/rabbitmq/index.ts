@@ -150,7 +150,7 @@ const wrapper = (configName: string): RabbitMQ => {
     })
   }
 
-  const publish = async (exchange: string, type: string, routingKey: string, data: any) => {
+  const publish = async (exchange: string, type: string, routingKey: string, data: any, options?: Options.Publish) => {
     try {
       countOutgoingMessage(exchange, routingKey)
       const publisherChannel = publisherConnection.createChannel({
@@ -159,7 +159,8 @@ const wrapper = (configName: string): RabbitMQ => {
           return channel.assertExchange(exchange, type)
         }
       })
-      await publisherChannel.publish(exchange, routingKey, data, { contentType: 'application/json', persistent: true })
+      const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true }, options)
+      await publisherChannel.publish(exchange, routingKey, data, mergedOptions)
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
       logger.info(message, context)
