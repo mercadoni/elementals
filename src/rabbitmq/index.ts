@@ -1,5 +1,5 @@
 import amqp from 'amqp-connection-manager'
-import { ConfirmChannel, ConsumeMessage } from 'amqplib'
+import { ConfirmChannel, ConsumeMessage, Options } from 'amqplib'
 import { Counter } from 'prom-client'
 import Logger from '../logger'
 import config from '../config'
@@ -136,13 +136,14 @@ const wrapper = (configName: string): RabbitMQ => {
     channelWrapper.on('connect', reportConnection)
   }
 
-  const publish = async (exchange: string, type: string, routingKey: string, data: any) => {
+  const publish = async (exchange: string, type: string, routingKey: string, data: any, options?: Options.Publish) => {
     try {
       countOutgoingMessage(exchange, routingKey)
       await publisherChannelWrapper.addSetup((channel: ConfirmChannel) => {
         channel.assertExchange(exchange, type)
       })
-      await publisherChannelWrapper.publish(exchange, routingKey, data, { contentType: 'application/json', persistent: true })
+      const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true }, options)
+      await publisherChannelWrapper.publish(exchange, routingKey, data, mergedOptions)
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
       logger.info(message, context)
