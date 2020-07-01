@@ -70,7 +70,7 @@ interface RabbitMQ {
   /**
   * @deprecated since version 0.7.0. Use publisher instead
   */
-  publish: (exchange: string, type: string, routingKey: string, data: any) => Promise<void>
+  publish: (exchange: string, type: string, routingKey: string, data: any, options?: Options.Publish) => Promise<void>
   topology: (f: amqp.SetupFunc) => Promise<void>,
   consumer: (queue: string, options: ConsumerOptions, processor: MessageProcessor) => void
   publisher: (exchange: string) => Publisher
