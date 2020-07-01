@@ -58,7 +58,7 @@ interface ChannelConfig {
 
 interface RabbitMQ {
   addListener: (channelConfig: ChannelConfig) => void
-  publish: (exchange: string, type: string, routingKey: string, data: any) => Promise<void>
+  publish: (exchange: string, type: string, routingKey: string, data: any, options?: Options.Publish) => Promise<void>
 }
 
 const wrapper = (configName: string): RabbitMQ => {
