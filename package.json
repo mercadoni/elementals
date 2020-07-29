@@ -24,8 +24,9 @@
     "dist": "npm run build && cd dist && npm publish"
   },
   "dependencies": {
-    "@types/amqp-connection-manager": "^2.0.9",
-    "@types/flat": "^5.0.0",
+    "@aws-crypto/client-node": "^1.0.5",
+    "@types/amqp-connection-manager": "^2.0.10",
+    "@types/flat": "^5.0.1",
     "@types/logfmt": "^1.2.1",
     "@types/nconf": "^0.10.0",
     "@types/node": "^13.13.15",
