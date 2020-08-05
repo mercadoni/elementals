@@ -15,14 +15,14 @@ interface Encryption {
 }
 
 const newKeyring = (conf: any): AWS.KeyringNode => {
-  if (!conf || !conf.generatorKeyId || !conf.keyIds) {
+  if (!conf || !conf.generator_key_id || !conf.key_ids) {
     const error = new Error('INVALID_ENCRYPTION_CONFIG')
     logger.error('Verify AWS Encryption keys configuration', {}, error)
     throw error
   }
 
-  const generatorKeyId = conf.generatorKeyId
-  const keyIds = conf.keyIds
+  const generatorKeyId = conf.generator_key_id
+  const keyIds : string[] = conf.key_ids.split(',')
   const keyring = new AWS.KmsKeyringNode({ generatorKeyId, keyIds })
   return keyring
 }
