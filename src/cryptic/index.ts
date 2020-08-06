@@ -10,7 +10,10 @@ export const encrypt = (algorithm: string, key: string, rawValue: object): Crypt
   const cipher = crypto.createCipheriv(algorithm, Buffer.from(key), iv)
   let encrypted = cipher.update(JSON.stringify(rawValue))
   encrypted = Buffer.concat([encrypted, cipher.final()])
-  return { iv: iv.toString('hex'), encryptedData: encrypted.toString('hex') }
+  return {
+    iv: iv.toString('hex'),
+    encryptedData: encrypted.toString('hex')
+  }
 }
 
 export const decrypt = (algorithm: string, key: string, rawValue: CrypticResponse): object => {
