@@ -52,6 +52,4 @@ const accessForbidden = (_res: any) => {
     .json({ message: 'Access forbidden. Please provide a valid API token' })
 }
 
-export default [
-  getClient
-]
+export default getClient
