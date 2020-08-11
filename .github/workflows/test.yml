@@ -22,3 +22,5 @@ jobs:
       run: npm run build
     - name: Lint
       run: npm run lint
+    - name: Test
+      run: log_silent=true npm test
