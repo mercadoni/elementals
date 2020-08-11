@@ -48,7 +48,7 @@ const countOutgoingError = (exchange: string, routingKey: string) => {
 
 type MessageProcessor = (eventData: any, message: ConsumeMessage) => Promise<any>
 
-interface ChannelConfig {
+export interface ChannelConfig {
   inputExchange: string,
   inputExchangeType?: string,
   inputQueue: string
@@ -62,7 +62,7 @@ interface ConsumerOptions extends Options.Consume {
   prefetch?: number
 }
 
-interface RabbitMQ {
+export interface RabbitMQ {
   /**
   * @deprecated since version 0.7.0. Use consumer instead
   */
@@ -264,5 +264,4 @@ const wrapper = (configName: string): RabbitMQ => {
   }
 }
 
-export type { RabbitMQ, ChannelConfig }
 export default wrapper
