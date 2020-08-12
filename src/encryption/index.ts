@@ -9,7 +9,7 @@ export declare type EncryptionContext = {
 
 const logger = Logger('encryption')
 
-interface Encryption {
+export interface Encryption {
   encrypt: (plaintext: string, context: EncryptionContext) => Promise<string>
   decrypt: (ciphertext: string, context: EncryptionContext) => Promise<string>
 }
@@ -58,5 +58,4 @@ const encryption = (configName: string): Encryption => {
   }
 }
 
-export type { Encryption }
 export default encryption

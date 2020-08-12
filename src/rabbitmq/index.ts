@@ -46,7 +46,7 @@ const countOutgoingError = (exchange: string, routingKey: string) => {
   failedOutgoingMessages.inc({ exchange, routingKey }, 1, Date.now())
 }
 
-interface ChannelConfig {
+export interface ChannelConfig {
   inputExchange: string,
   inputExchangeType?: string,
   inputQueue: string
@@ -56,7 +56,7 @@ interface ChannelConfig {
   processor: (eventData: any, message: ConsumeMessage) => Promise<any>
 }
 
-interface RabbitMQ {
+export interface RabbitMQ {
   addListener: (channelConfig: ChannelConfig) => void
   publish: (exchange: string, type: string, routingKey: string, data: any, options?: Options.Publish) => Promise<void>
 }
@@ -162,5 +162,4 @@ const wrapper = (configName: string): RabbitMQ => {
   }
 }
 
-export type { RabbitMQ, ChannelConfig }
 export default wrapper
