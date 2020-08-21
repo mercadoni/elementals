@@ -1,5 +1,6 @@
 import Logger from '../src/logger'
-import { info } from 'winston'
+import { info, debug, error } from 'winston'
+import VError from 'verror'
 
 jest.mock('winston', () => {
   const mFormat = {
@@ -16,20 +17,26 @@ jest.mock('winston', () => {
   }
 
   const mInfo = jest.fn()
+  const mDebug = jest.fn()
+  const mError = jest.fn()
 
   const mLogger = {
-    info: mInfo
+    info: mInfo,
+    error: mError,
+    debug: mDebug
   }
 
   return {
     format: mFormat,
     transports: mTransports,
     createLogger: jest.fn(() => mLogger),
-    info: mInfo
+    info: mInfo,
+    debug: mDebug,
+    error: mError
   }
 })
 
-describe('Request Logger', () => {
+describe('Logger', () => {
   const logger = Logger('test')
   let data: any
 
@@ -65,39 +72,59 @@ describe('Request Logger', () => {
     jest.resetAllMocks()
   })
 
-  it('should mask the request data with depth 0', () => {
+  it('should mask the info data with depth 0', () => {
     const maskedFields = ['client']
     const expectedData = data
     expectedData.client = '*'.repeat(data.client.length)
-    logger.request('Incoming request', data, maskedFields)
+    logger.info('Incoming info', data, maskedFields)
     expect(info).toBeCalled()
-    expect(info).toBeCalledWith('Incoming request', { data: expectedData })
+    expect(info).toBeCalledWith('Incoming info', { data: expectedData })
   })
 
-  it('should mask the request data with depth 1', () => {
+  it('should mask the info data with depth 1', () => {
     const maskedFields = ['body.client_reference']
     const expectedData = data
     expectedData.body.client_reference = '*'.repeat(data.body.client_reference.length)
-    logger.request('Incoming request', data, maskedFields)
+    logger.info('Incoming info', data, maskedFields)
     expect(info).toBeCalled()
-    expect(info).toBeCalledWith('Incoming request', { data: expectedData })
+    expect(info).toBeCalledWith('Incoming info', { data: expectedData })
   })
 
-  it('should mask the request data with depth 2', () => {
+  it('should mask the info data with depth 2', () => {
     const maskedFields = ['body.recipient.identification']
     const expectedData = data
     expectedData.body.recipient.identification = '*'.repeat(data.body.recipient.identification.length)
-    logger.request('Incoming request', data, maskedFields)
+    logger.info('Incoming info', data, maskedFields)
     expect(info).toBeCalled()
-    expect(info).toBeCalledWith('Incoming request', { data: expectedData })
+    expect(info).toBeCalledWith('Incoming info', { data: expectedData })
   })
 
-  it('should mask the request data with depth 3', () => {
+  it('should mask the info data with depth 3', () => {
     const maskedFields = ['body.recipient.identification.number']
     const expectedData = data
     expectedData.body.recipient.identification.number = '*'.repeat(data.body.recipient.identification.number.length)
-    logger.request('Incoming request', data, maskedFields)
+    logger.info('Incoming info', data, maskedFields)
     expect(info).toBeCalled()
-    expect(info).toBeCalledWith('Incoming request', { data: expectedData })
+    expect(info).toBeCalledWith('Incoming info', { data: expectedData })
+  })
+
+  it('should mask the data in the error logger', () => {
+    const maskedFields = ['client']
+    const expectedData = data
+    const err = new Error('ERROR')
+    const stacktrace = VError.fullStack(err)
+    expectedData.client = '*'.repeat(data.client.length)
+    logger.error('Request error', data, err, maskedFields)
+    expect(error).toBeCalled()
+    expect(error).toBeCalledWith('Request error', { data: expectedData, stacktrace })
+  })
+
+  it('should mask the data in the debug logger', () => {
+    const maskedFields = ['client']
+    const expectedData = data
+    expectedData.client = '*'.repeat(data.client.length)
+    logger.debug('Incoming info', data, maskedFields)
+    expect(debug).toBeCalled()
+    expect(debug).toBeCalledWith('Incoming info', { data: expectedData })
   })
 })

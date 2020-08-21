@@ -43,10 +43,9 @@ const maskRequestData = (input: JSON, maskedFields: string []) => {
 }
 
 interface Logger {
-  debug: (message: string, data?: any) => void
-  info: (message: string, data?: any) => void
-  error: (message: string, data: any, err: any) => void
-  request: (message: string, data: any, maskedFields?: string[]) => void
+  debug: (message: string, data?: any, maskedFields?: string[]) => void
+  info: (message: string, data?: any, maskedFields?: string[]) => void
+  error: (message: string, data: any, err: any, maskedFields?: string[]) => void
 }
 
 const logger = (tag: string): Logger => {
@@ -58,23 +57,21 @@ const logger = (tag: string): Logger => {
     transports: [new transports.Console()],
     silent
   })
-  const error = (message: string, data: any, err: Error) => {
+  const error = (message: string, data: any, err: Error, maskedFields?: string[]) => {
     const stacktrace = VError.fullStack(err)
+    data = maskedFields ? maskRequestData(data, maskedFields) : data
     log.error(message, { data, stacktrace })
   }
-  const info = (message: string, data?: any) => {
+  const info = (message: string, data?: any, maskedFields?: string[]) => {
+    data = maskedFields ? maskRequestData(data, maskedFields) : data
     log.info(message, { data })
   }
-  const debug = (message: string, data?: any) => {
+  const debug = (message: string, data?: any, maskedFields?: string[]) => {
+    data = maskedFields ? maskRequestData(data, maskedFields) : data
     log.debug(message, { data })
   }
-  const request = (message: string, data: any, maskedFields?: string[]) => {
-    if (maskedFields) {
-      data = maskRequestData(data, maskedFields)
-    }
-    log.info(message, { data })
-  }
-  return { debug, info, error, request }
+
+  return { debug, info, error }
 }
 
 export default logger

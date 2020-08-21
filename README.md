@@ -4,12 +4,12 @@ Building blocks for NodeJS services
 
 ## Logger
 
-### Requests
+### Mask data
 
-To log HTTP requests and mask sensitive information:
+To mask sensitive information each method (debug, error, info) receives `maskedFields`:
 
 ``` js
-logger.request(message, data, maskedFields)
+logger.info(message, data, maskedFields)
 ```
 
 `maskedFields` is a list of name fields to be masked, it's possible to mask nested JSON by using the field.subfield notation.
@@ -20,7 +20,7 @@ logger.request(message, data, maskedFields)
 
   ``` js
   const maskedFields = ['client']
-  logger.request('Incoming request', {base: 'POST /jobs/', client:'<test>', body:... }, maskedFields)
+  logger.info('Incoming request', {base: 'POST /jobs/', client:'<test>', body:... }, maskedFields)
   ```
   Result
   ``` log
@@ -53,7 +53,7 @@ logger.request(message, data, maskedFields)
   - Depth 1
     ``` js
     const maskedFields = ['body.origin']
-    logger.request('Incoming request', data, maskedFields)
+    logger.info('Incoming request', data, maskedFields)
     ```
     Result
     ``` log
@@ -74,7 +74,7 @@ logger.request(message, data, maskedFields)
   - Depth 2
     ``` js
     const maskedFields = ['body.origin.name']
-    logger.request('Incoming request', data, maskedFields)
+    logger.info('Incoming request', data, maskedFields)
     ```
     Result
     ``` log
