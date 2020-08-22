@@ -5,9 +5,11 @@ import flat from 'flat'
 import config from '../config'
 const { combine, timestamp, label, printf, colorize, json } = format
 
+const maskData = require('maskdata')
 const level = config.get('log_level') || 'debug'
 const devLog = config.get('dev_log')
 const silent = config.get('log_silent') || false
+const maskSymbol = config.get('mask_symbol') ?? '*'
 
 export const formats = (tag: string) => {
   return {
@@ -28,10 +30,18 @@ export const formats = (tag: string) => {
   }
 }
 
+const maskRequestData = (input: JSON, maskedFields: string []) => {
+  const maskJSONOptions = {
+    maskWith: maskSymbol,
+    fields: maskedFields
+  }
+  return maskData.maskJSONFields(input, maskJSONOptions)
+}
+
 interface Logger {
-  debug: (message: string, data?: any) => void
-  info: (message: string, data?: any) => void
-  error: (message: string, data: any, err: any) => void
+  debug: (message: string, data?: any, maskedFields?: string[]) => void
+  info: (message: string, data?: any, maskedFields?: string[]) => void
+  error: (message: string, data: any, err: any, maskedFields?: string[]) => void
 }
 
 const logger = (tag: string): Logger => {
@@ -43,16 +53,20 @@ const logger = (tag: string): Logger => {
     transports: [new transports.Console()],
     silent
   })
-  const error = (message: string, data: any, err: Error) => {
+  const error = (message: string, data: any, err: Error, maskedFields?: string[]) => {
     const stacktrace = VError.fullStack(err)
-    log.error({ message, data, stacktrace })
+    data = maskedFields ? maskRequestData(data, maskedFields) : data
+    log.error(message, { data, stacktrace })
   }
-  const info = (message: string, data?: any) => {
-    log.info({ message, data })
+  const info = (message: string, data?: any, maskedFields?: string[]) => {
+    data = maskedFields ? maskRequestData(data, maskedFields) : data
+    log.info(message, { data })
   }
-  const debug = (message: string, data?: any) => {
-    log.debug({ message, data })
+  const debug = (message: string, data?: any, maskedFields?: string[]) => {
+    data = maskedFields ? maskRequestData(data, maskedFields) : data
+    log.debug(message, { data })
   }
+
   return { debug, info, error }
 }
 
