@@ -1,6 +1,7 @@
-import { decrypt, encrypt, Algorithm } from '../src/cryptic'
+import lodash from 'lodash'
+import cryptic, { decrypt, encrypt, Algorithm } from '../src/cryptic'
 
-describe('Encryption', () => {
+describe('Cryptic', () => {
   let plaintext : string
   let crypticResponseString: any
   let crypticResponseObject: any
@@ -43,5 +44,39 @@ describe('Encryption', () => {
   it('should decrypt the message for an object', async () => {
     const decryptedMessage = decrypt(Algorithm.AES_256, key, crypticResponseObject)
     expect(decryptedMessage).toStrictEqual(plainObject)
+  })
+
+  describe('Bulk cryptic', () => {
+    let bulkCryptic: any
+    let rawValues: object[]
+    let crypticResponseObjects: any
+
+    beforeEach(() => {
+      bulkCryptic = cryptic(Algorithm.AES_256, key)
+      rawValues = lodash.times(10, () => lodash.cloneDeep(plainObject))
+      crypticResponseObjects = bulkCryptic.bulkEncrypt(rawValues)
+    })
+
+    it('should encrypt a list of objects and return a different cipher for each one', () => {
+      const encrypted = bulkCryptic.bulkEncrypt(rawValues)
+      expect(encrypted).toHaveLength(rawValues.length)
+      expect(encrypted[0]).toHaveProperty('iv')
+      expect(encrypted[0]).toHaveProperty('encryptedData')
+      expect(encrypted[0].encryptedData).not.toBe(encrypted[1].encryptedData)
+    })
+
+    it('should decrypt a list of objects', () => {
+      const decrypted = bulkCryptic.bulkDecrypt(crypticResponseObjects)
+      expect(decrypted).toHaveLength(rawValues.length)
+      expect(decrypted).toStrictEqual(rawValues)
+    })
+
+    it('should encrypt/decrypt a list of numbers', () => {
+      const numList = lodash.times(10, () => Math.random() * 100)
+      const encrypted = bulkCryptic.bulkEncrypt(numList)
+      const decrypted = bulkCryptic.bulkDecrypt(encrypted)
+      expect(decrypted).toHaveLength(numList.length)
+      expect(decrypted).toStrictEqual(numList)
+    })
   })
 })

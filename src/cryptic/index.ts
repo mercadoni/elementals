@@ -28,3 +28,22 @@ export const decrypt = (algorithm: Algorithm | string, key: string, encryptedVal
   decrypted = Buffer.concat([decrypted, decipher.final()])
   return JSON.parse(decrypted.toString())
 }
+
+interface Cryptic {
+  bulkEncrypt: (rawValues: (object | string | number)[]) => CrypticResponse[],
+  bulkDecrypt: (encryptedValues: CrypticResponse[]) => object[]
+}
+
+const cryptic = (algorithm: Algorithm | string, key: string): Cryptic => {
+  const bulkEncrypt = (rawValues: (object | string | number)[]): CrypticResponse[] => {
+    return rawValues.map((value: any) => encrypt(algorithm, key, value))
+  }
+
+  const bulkDecrypt = (encryptedValues: CrypticResponse[]): object[] => {
+    return encryptedValues.map((value: CrypticResponse) => decrypt(algorithm, key, value))
+  }
+
+  return { bulkEncrypt, bulkDecrypt }
+}
+
+export default cryptic
