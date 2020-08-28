@@ -46,6 +46,23 @@ describe('Cryptic', () => {
     expect(decryptedMessage).toStrictEqual(plainObject)
   })
 
+  it('should encrypt/decrypt using encoded cryptic response', () => {
+    const encryptedMessage = encrypt(Algorithm.AES_256, key, plainObject, true)
+    expect(typeof encryptedMessage).toBe('string')
+    const decrypted = decrypt(Algorithm.AES_256, key, encryptedMessage, true)
+    expect(decrypted).toStrictEqual(plainObject)
+  })
+
+  it('should fail to decrypt using an invalid JSON of encoded cryptic response', () => {
+    expect(() => decrypt(Algorithm.AES_256, key, 'inv4lid_cryptic_r3spons3', true)).toThrowError(
+      new Error('INVALID_ENCODED_CRYPTIC_RESPONSE'))
+  })
+
+  it('should fail to decrypt using an invalid encoded cryptic response', () => {
+    expect(() => decrypt(Algorithm.AES_256, key, 'ewoic2VsYXMiOiAiY3JleWVyb24iCn0=', true)).toThrowError(
+      new Error('INVALID_CRYPTIC_RESPONSE'))
+  })
+
   describe('Bulk cryptic', () => {
     let bulkCryptic: any
     let rawValues: object[]
@@ -77,6 +94,17 @@ describe('Cryptic', () => {
       const decrypted = bulkCryptic.bulkDecrypt(encrypted)
       expect(decrypted).toHaveLength(numList.length)
       expect(decrypted).toStrictEqual(numList)
+    })
+
+    it('should encrypt/decrypt using encoded cryptic responses', () => {
+      const encrypted = bulkCryptic.bulkEncrypt(rawValues, true)
+      expect(encrypted).toHaveLength(rawValues.length)
+      encrypted.forEach((item: any) => {
+        expect(typeof item).toBe('string')
+      })
+      const decrypted = bulkCryptic.bulkDecrypt(encrypted, true)
+      expect(decrypted).toHaveLength(rawValues.length)
+      expect(decrypted).toStrictEqual(rawValues)
     })
   })
 })

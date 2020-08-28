@@ -1,6 +1,8 @@
 # Elementals
 Building blocks for NodeJS services
 
+1. [Logger](#Logger)
+2. [Cryptic](#Cryptic)
 
 ## Logger
 
@@ -107,7 +109,14 @@ const key = 'Y0ur4p1tokenpr0v1d3dby_123d4g34p'
 const crypticResponse = encrypt(Algorithm.AES_256, key, plaintext)
 ```
 
-The response consists of the iv and the encryptedData both are necessary to decrypt the message.
+The response is a `CrypticResponse` object that consists of the iv and the encryptedData both are necessary to decrypt the message. It's possible to receive a Base64 string of the `CrypticResponse` object by setting `encode` param to `true`.
+``` js
+import { encrypt, Algorithm } from '...'
+const plaintext = 'h1dd3n_message'
+const key = 'Y0ur4p1tokenpr0v1d3dby_123d4g34p'
+const crypticResponse = encrypt(Algorithm.AES_256, key, plaintext, true)
+// crypticResponse = 'ewoic2VsYXMiOiAiY3JleWVyb24iCn0='
+```
 
 ### Decrypt
 
@@ -115,6 +124,13 @@ The response consists of the iv and the encryptedData both are necessary to decr
 import { decrypt, Algorithm } from '...'
 const key = 'Y0ur4p1tokenpr0v1d3dby_123d4g34p'
 const decryptedMessage = decrypt(Algorithm.AES_256, key, crypticResponse)
+```
+To decrypt a encoded crypticResponse, it's necessary to set `encoded` param to `true`.
+``` js
+import { decrypt, Algorithm } from '...'
+const key = 'Y0ur4p1tokenpr0v1d3dby_123d4g34p'
+const crypticResponse = 'ewoic2VsYXMiOiAiY3JleWVyb24iCn0='
+const decryptedMessage = decrypt(Algorithm.AES_256, key, crypticResponse, true)
 ```
 
 ### Bulk Encryption/Decryption
@@ -125,10 +141,18 @@ import cryptic, { Algorithm } from '...'
 const key = 'Y0ur4p1tokenpr0v1d3dby_123d4g34p'
 const cryptic = cryptic(Algorithm.AES_256, key)
 ```
-
 Then each encrypt/decrypt function call will only need the values to be encrypted/decrypted.
 ``` js
 const objects = [...]
 const crypticResponses = cryptic.BulkEncrypt(objects)
 const decryptedObjects = cryptic.BulkDecrypt(crypticResponses)
+```
+It's possible to receive a list of Base64 strings of the `CrypticResponse` objects by setting `encode` param to `true`.
+``` js
+const crypticResponses = cryptic.BulkEncrypt(objects, true)
+// crypticResponses = ['ewoic2VsYXMiOiAiY3JleWVyb24iCn0=', ...]
+```
+To decrypt a list of encoded crypticResponses, it's necessary to set `encoded` param to `true`.
+``` js
+const decryptedObjects = cryptic.BulkDecrypt(crypticResponses, true)
 ```
