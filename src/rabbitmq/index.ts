@@ -63,9 +63,6 @@ interface ConsumerOptions extends Options.Consume {
 }
 
 export interface RabbitMQ {
-  /**
-  * @deprecated since version 0.7.0. Use consumer instead
-  */
   addListener: (channelConfig: ChannelConfig) => void
   /**
   * @deprecated since version 0.7.0. Use publisher instead
@@ -94,6 +91,7 @@ const wrapper = (configName: string): RabbitMQ => {
   const conf = config.get(configName)
   const consumerConnection = newConnection(conf)
   const publisherConnection = newConnection(conf)
+  const legacyPublisherChannel = publisherConnection.createChannel({ json: true })
 
   const addListener = (channelConfig: ChannelConfig) => {
     const { inputExchange, inputQueue, pattern, errorExchange } = channelConfig
@@ -153,14 +151,11 @@ const wrapper = (configName: string): RabbitMQ => {
   const publish = async (exchange: string, type: string, routingKey: string, data: any, options?: Options.Publish) => {
     try {
       countOutgoingMessage(exchange, routingKey)
-      const publisherChannel = publisherConnection.createChannel({
-        json: true,
-        setup: (channel: ConfirmChannel) => {
-          return channel.assertExchange(exchange, type)
-        }
+      await legacyPublisherChannel.addSetup((channel: ConfirmChannel) => {
+        channel.assertExchange(exchange, type)
       })
       const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true }, options)
-      await publisherChannel.publish(exchange, routingKey, data, mergedOptions)
+      await legacyPublisherChannel.publish(exchange, routingKey, data, mergedOptions)
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
       logger.info(message, context)
