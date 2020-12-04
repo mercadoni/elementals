@@ -32,6 +32,7 @@ const failedOutgoingMessages = new Counter({
 
 const countIncomingMessage = (queue: string) => {
   totalIncomingMessages.inc({ queue }, 1, Date.now())
+  failedIncomingMessages.inc({ queue }, 0, Date.now()) // Sounds silly to increment by 0, but this initializes the metric
 }
 
 const countIncomingError = (queue: string) => {
@@ -154,7 +155,7 @@ const wrapper = (configName: string): RabbitMQ => {
       await legacyPublisherChannel.addSetup((channel: ConfirmChannel) => {
         channel.assertExchange(exchange, type)
       })
-      const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true }, options)
+      const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true, timestamp: Date.now() }, options)
       await legacyPublisherChannel.publish(exchange, routingKey, data, mergedOptions)
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
@@ -219,7 +220,7 @@ const wrapper = (configName: string): RabbitMQ => {
     const publish = async (routingKey: string, data: any, options?: Options.Publish) => {
       try {
         countOutgoingMessage(exchange, routingKey)
-        const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true }, options)
+        const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true, timestamp: Date.now() }, options)
         await publisherChannel.publish(exchange, routingKey, data, mergedOptions)
         const context = { body: data, exchange, routingKey }
         logger.info('message_published', context)
