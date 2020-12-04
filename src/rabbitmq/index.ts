@@ -32,6 +32,7 @@ const failedOutgoingMessages = new Counter({
 
 const countIncomingMessage = (queue: string) => {
   totalIncomingMessages.inc({ queue }, 1, Date.now())
+  failedIncomingMessages.inc({ queue }, 0, Date.now()) // Sounds silly to increment by 0, but this initializes the metric
 }
 
 const countIncomingError = (queue: string) => {
@@ -142,7 +143,7 @@ const wrapper = (configName: string): RabbitMQ => {
       await publisherChannelWrapper.addSetup((channel: ConfirmChannel) => {
         channel.assertExchange(exchange, type)
       })
-      const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true }, options)
+      const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true, timestamp: Date.now() }, options)
       await publisherChannelWrapper.publish(exchange, routingKey, data, mergedOptions)
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
