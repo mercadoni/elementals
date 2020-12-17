@@ -1,32 +1,50 @@
 import amqp, { AmqpConnectionManager } from 'amqp-connection-manager'
-import { ConfirmChannel, ConsumeMessage, Options, MessageProperties } from 'amqplib'
-import { Counter, Histogram } from 'prom-client'
+import { ConfirmChannel, ConsumeMessage, Options } from 'amqplib'
+import { Counter } from 'prom-client'
 import Logger from '../logger'
 import config from '../config'
 
 const logger = Logger('rabbitmq')
 
-const incomingMessages = new Histogram({
-  name: 'elementals_amqp_incoming_messages',
-  help: 'Messages processed, by queue and status, along with the processing time in seconds',
-  labelNames: ['queue', 'outcome'],
-  buckets: [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 360, 600, 1800]
+const totalIncomingMessages = new Counter({
+  name: 'elementals_amqp_incoming_total',
+  help: 'Messages processed',
+  labelNames: ['queue']
 })
 
-const outgoingMessages = new Counter({
-  name: 'elementals_amqp_outgoing_messages',
+const failedIncomingMessages = new Counter({
+  name: 'elementals_amqp_incoming_errors_total',
+  help: 'Errors found',
+  labelNames: ['queue']
+})
+
+const totalOutgoingMessages = new Counter({
+  name: 'elementals_amqp_outgoing_total',
   help: 'Messages produced',
-  labelNames: ['exchange', 'routingKey', 'outcome']
+  labelNames: ['exchange', 'routingKey']
 })
 
-const countIncomingMessage = (queue: string, outcome: string, properties: MessageProperties) => {
-  const time = properties.timestamp ? Date.now() - properties.timestamp : 0
-  logger.debug('elapsed_time', { queue, outcome, time })
-  incomingMessages.observe({ queue, outcome }, time / 1000)
+const failedOutgoingMessages = new Counter({
+  name: 'elementals_amqp_outgoing_errors_total',
+  help: 'Errors found',
+  labelNames: ['exchange', 'routingKey']
+})
+
+const countIncomingMessage = (queue: string) => {
+  totalIncomingMessages.inc({ queue }, 1, Date.now())
+  failedIncomingMessages.inc({ queue }, 0, Date.now()) // Sounds silly to increment by 0, but this initializes the metric
 }
 
-const countOutgoingMessage = (exchange: string, routingKey: string, outcome: string) => {
-  outgoingMessages.inc({ exchange, routingKey, outcome }, 1)
+const countIncomingError = (queue: string) => {
+  failedIncomingMessages.inc({ queue }, 1, Date.now())
+}
+
+const countOutgoingMessage = (exchange: string, routingKey: string) => {
+  totalOutgoingMessages.inc({ exchange, routingKey }, 1, Date.now())
+}
+
+const countOutgoingError = (exchange: string, routingKey: string) => {
+  failedOutgoingMessages.inc({ exchange, routingKey }, 1, Date.now())
 }
 
 type MessageProcessor = (eventData: any, message: ConsumeMessage) => Promise<any>
@@ -84,25 +102,23 @@ const wrapper = (configName: string): RabbitMQ => {
 
     const onMessage = async (message: ConsumeMessage | null) => {
       if (message !== null) {
+        countIncomingMessage(inputQueue)
         const contentAsString = message.content.toString()
         try {
           const eventData = JSON.parse(contentAsString)
           try {
             await channelConfig.processor(eventData, message)
             channelWrapper.ack(message)
-            countIncomingMessage(inputQueue, 'success', message.properties)
           } catch (err) {
-            const outcome = 'processing_failed'
-            countIncomingMessage(inputQueue, outcome, message.properties)
+            countIncomingError(inputQueue)
             const context = Object.assign(message, { content: eventData })
-            logger.error(outcome, context, err)
+            logger.error('processing_failed', context, err)
             channelWrapper.nack(message, false, false)
           }
         } catch (err) {
-          const outcome = 'parsing_failed'
-          countIncomingMessage(inputQueue, outcome, message.properties)
+          countIncomingError(inputQueue)
           const context = Object.assign(message, { content: contentAsString })
-          logger.error(outcome, context, err)
+          logger.error('parsing_failed', context, err)
           channelWrapper.nack(message, false, false)
         }
       }
@@ -135,17 +151,17 @@ const wrapper = (configName: string): RabbitMQ => {
 
   const publish = async (exchange: string, type: string, routingKey: string, data: any, options?: Options.Publish) => {
     try {
+      countOutgoingMessage(exchange, routingKey)
       await legacyPublisherChannel.addSetup((channel: ConfirmChannel) => {
         channel.assertExchange(exchange, type)
       })
       const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true, timestamp: Date.now() }, options)
       await legacyPublisherChannel.publish(exchange, routingKey, data, mergedOptions)
-      countOutgoingMessage(exchange, routingKey, 'success')
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
       logger.info(message, context)
     } catch (err) {
-      countOutgoingMessage(exchange, routingKey, 'failure')
+      countOutgoingError(exchange, routingKey)
       const errorMessage = 'RabbitMQ message publishing failed'
       const context = { body: data, exchange, routingKey }
       logger.error(errorMessage, context, err)
@@ -157,25 +173,23 @@ const wrapper = (configName: string): RabbitMQ => {
     const prefetch = options.prefetch ?? 1
     const onMessage = async (message: ConsumeMessage | null) => {
       if (message !== null) {
+        countIncomingMessage(queue)
         const contentAsString = message.content.toString()
         try {
           const eventData = JSON.parse(contentAsString)
           try {
             await processor(eventData, message)
             consumerChannel.ack(message)
-            countIncomingMessage(queue, 'success', message.properties)
           } catch (err) {
-            const outcome = 'processing_failed'
-            countIncomingMessage(queue, outcome, message.properties)
+            countIncomingError(queue)
             const context = Object.assign(message, { content: eventData })
-            logger.error(outcome, context, err)
+            logger.error('processing_failed', context, err)
             consumerChannel.nack(message, false, false)
           }
         } catch (err) {
-          const outcome = 'parsing_failed'
-          countIncomingMessage(queue, outcome, message.properties)
+          countIncomingError(queue)
           const context = Object.assign(message, { content: contentAsString })
-          logger.error(outcome, context, err)
+          logger.error('parsing_failed', context, err)
           consumerChannel.nack(message, false, false)
         }
       }
@@ -205,13 +219,13 @@ const wrapper = (configName: string): RabbitMQ => {
     })
     const publish = async (routingKey: string, data: any, options?: Options.Publish) => {
       try {
+        countOutgoingMessage(exchange, routingKey)
         const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true, timestamp: Date.now() }, options)
         await publisherChannel.publish(exchange, routingKey, data, mergedOptions)
-        countOutgoingMessage(exchange, routingKey, 'success')
         const context = { body: data, exchange, routingKey }
         logger.info('message_published', context)
       } catch (err) {
-        countOutgoingMessage(exchange, routingKey, 'failure')
+        countOutgoingError(exchange, routingKey)
         const context = { body: data, exchange, routingKey }
         logger.error('message_publishing_failed', context, err)
         throw err
