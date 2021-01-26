@@ -88,6 +88,10 @@ interface ConsumerOptions extends Options.Consume {
   prefetch?: number
 }
 
+interface Publisher {
+  publish: (routingKey: string, data: any, options?: Options.Publish) => Promise<void>
+}
+
 export interface RabbitMQ {
   addListener: (channelConfig: ChannelConfig) => void
   /**
@@ -97,10 +101,6 @@ export interface RabbitMQ {
   topology: (f: amqp.SetupFunc) => Promise<void>,
   consumer: (queue: string, options: ConsumerOptions, processor: MessageProcessor) => void
   publisher: (exchange: string) => Publisher
-}
-
-interface Publisher {
-  publish: (routingKey: string, data: any, options?: Options.Publish) => Promise<void>
 }
 
 const newConnection = (conf: any): AmqpConnectionManager => {
