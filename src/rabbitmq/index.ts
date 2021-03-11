@@ -107,7 +107,11 @@ const newConnection = (conf: any): AmqpConnectionManager => {
   const hosts: string[] = conf.host.split(',')
   const protocol = conf.protocol || 'amqps'
   const urls = hosts.map(host => `${protocol}://${conf.username}:${conf.password}@${host}`)
-  const connection = amqp.connect(urls)
+  const options = {
+    heartbeatIntervalInSeconds: conf.options?.heartbeat ?? 5,
+    reconnectTimeInSeconds: conf.options?.reconnect ?? 5
+  }
+  const connection = amqp.connect(urls, options)
   connection.on('connect', () => logger.info('connection_established', { protocol, hosts, username: conf.username }))
   connection.on('disconnect', ({ err }) => logger.error('disconnected', {}, err))
   return connection
