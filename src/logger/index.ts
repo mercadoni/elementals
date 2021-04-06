@@ -4,9 +4,8 @@ import logfmt from 'logfmt'
 import flat from 'flat'
 import config from '../config'
 const { combine, timestamp, label, printf, colorize, json } = format
-
 const maskData = require('maskdata')
-const level = config.get('log_level') || 'debug'
+
 const logFormat = config.get('log_format')
 const maxDepth = config.get('log_max_depth') ?? 3
 const silent = config.get('log_silent') || false
@@ -48,7 +47,8 @@ interface Logger {
   error: (message: string, data: any, err: any, maskedFields?: string[]) => void
 }
 
-const logger = (tag: string): Logger => {
+const logger = (tag: string, loggerLevel?: string): Logger => {
+  const level = loggerLevel ?? config.get('log_level') ?? 'debug'
   const taggedFormats = formats(tag)
   const format = logFormat === 'logfmt' ? taggedFormats.logfmt : taggedFormats.json
   const log = createLogger({
