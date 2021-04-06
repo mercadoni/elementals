@@ -192,7 +192,7 @@ const wrapper = (configName: string): RabbitMQ => {
       await legacyPublisherChannel.publish(exchange, routingKey, data, mergedOptions)
       const message = 'RabbitMQ message published'
       const context = { body: data, exchange, routingKey }
-      logger.info(message, context)
+      logger.debug(message, context)
     } catch (err) {
       countOutgoingError(exchange)
       const errorMessage = 'RabbitMQ message publishing failed'
@@ -260,7 +260,7 @@ const wrapper = (configName: string): RabbitMQ => {
         const mergedOptions = Object.assign({ contentType: 'application/json', persistent: true, timestamp: Date.now() }, options)
         await publisherChannel.publish(exchange, routingKey, data, mergedOptions)
         const context = { body: data, exchange, routingKey }
-        logger.info('message_published', context)
+        logger.debug('message_published', context)
       } catch (err) {
         countOutgoingError(exchange)
         const context = { body: data, exchange, routingKey }
