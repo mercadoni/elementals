@@ -173,11 +173,11 @@ const wrapper = (configName: string): RabbitMQ => {
             messages.push((result as GetMessage).content.toString())
             lastMessage = result as GetMessage
           }
-        } while (--quantity && result);
+        } while (--quantity && result)
 
         if (lastMessage) {
           const end = processingDuration.startTimer({ queue: inputQueue })
-          try{
+          try {
             messages.forEach((value, index) => {
               messages[index] = JSON.parse(value)
             })
@@ -186,12 +186,12 @@ const wrapper = (configName: string): RabbitMQ => {
               channel.ack(lastMessage, true)
             } catch (err) {
               countIncomingError(inputQueue, messages.length)
-              logger.error('processing_failed', {messages, lastMessage}, err)
+              logger.error('processing_failed', { messages, lastMessage }, err)
               channel.nack(lastMessage, true)
             }
           } catch (err) {
             countIncomingError(inputQueue, messages.length)
-            logger.error('parsing_failed', {messages, lastMessage}, err)
+            logger.error('parsing_failed', { messages, lastMessage }, err)
             channel.nack(lastMessage, true)
           } finally {
             end()
@@ -199,12 +199,12 @@ const wrapper = (configName: string): RabbitMQ => {
         }
       } catch (err) {
         countIncomingError(inputQueue, messages.length)
-        logger.error('getting_messages_failed', {messages, lastMessage}, err)
+        logger.error('getting_messages_failed', { messages, lastMessage }, err)
         if (lastMessage) {
           channel.nack(lastMessage, true)
         }
       }
-    };
+    }
 
     const channelWrapper = consumerConnection.createChannel({
       json: true,
@@ -220,9 +220,9 @@ const wrapper = (configName: string): RabbitMQ => {
           }),
           channel.prefetch(prefetch),
           channel.bindQueue(inputQueue, inputExchange, pattern),
-          channel.bindQueue(errorQueue, errorExchange, inputQueue),
+          channel.bindQueue(errorQueue, errorExchange, inputQueue)
         ])
-        return batchQuantity? getMessages(batchQuantity, channel) : channel.consume(inputQueue, onMessage)
+        return batchQuantity ? getMessages(batchQuantity, channel) : channel.consume(inputQueue, onMessage)
       }
     })
 
