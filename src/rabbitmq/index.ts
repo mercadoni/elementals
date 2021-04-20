@@ -1,5 +1,5 @@
 import amqp, { AmqpConnectionManager } from 'amqp-connection-manager'
-import { ConfirmChannel, ConsumeMessage, Options, MessageProperties } from 'amqplib'
+import { ConfirmChannel, ConsumeMessage, Options, MessageProperties, GetMessage } from 'amqplib'
 import { Counter, Histogram } from 'prom-client'
 import Logger from '../logger'
 import config from '../config'
@@ -29,8 +29,8 @@ const countIncomingMessage = (queue: string, properties: MessageProperties) => {
   waitingDuration.observe({ queue }, time / 1000)
 }
 
-const countIncomingError = (queue: string) => {
-  failedIncomingMessages.inc({ queue }, 1)
+const countIncomingError = (queue: string, quantity: number = 1) => {
+  failedIncomingMessages.inc({ queue }, quantity)
 }
 
 const totalOutgoingMessages = new Counter({
@@ -81,6 +81,7 @@ export interface ChannelConfig {
   pattern: string,
   errorExchange: string,
   prefetch?: number,
+  batchQuantity?: number,
   processor: MessageProcessor
 }
 
@@ -124,7 +125,7 @@ const wrapper = (configName: string): RabbitMQ => {
   const legacyPublisherChannel = publisherConnection.createChannel({ json: true })
 
   const addListener = (channelConfig: ChannelConfig) => {
-    const { inputExchange, inputQueue, pattern, errorExchange } = channelConfig
+    const { inputExchange, inputQueue, pattern, errorExchange, batchQuantity } = channelConfig
     initializeQueueMetrics(inputQueue)
     const inputExchangeType = channelConfig.inputExchangeType || 'topic'
     const errorQueue = `${inputQueue}_errors`
@@ -157,10 +158,58 @@ const wrapper = (configName: string): RabbitMQ => {
       }
     }
 
+    const getMessages = async (
+      quantity: number,
+      channel: ConfirmChannel
+    ) => {
+      const messages: any[] = []
+      let result: GetMessage | false = false
+      let lastMessage: GetMessage | undefined
+      try {
+        do {
+          result = await channel.get(inputQueue, { noAck: false })
+          if (result) {
+            lastMessage = result as GetMessage
+            countIncomingMessage(inputQueue, lastMessage.properties)
+            messages.push(lastMessage.content.toString())
+          }
+        } while (--quantity && result)
+
+        if (lastMessage) {
+          const end = processingDuration.startTimer({ queue: inputQueue })
+          try {
+            messages.forEach((value, index) => {
+              messages[index] = JSON.parse(value)
+            })
+            try {
+              await channelConfig.processor(messages, lastMessage)
+              channel.ack(lastMessage, true)
+            } catch (err) {
+              countIncomingError(inputQueue, messages.length)
+              logger.error('processing_failed', { messages, lastMessage }, err)
+              channel.nack(lastMessage, true)
+            }
+          } catch (err) {
+            countIncomingError(inputQueue, messages.length)
+            logger.error('parsing_failed', { messages, lastMessage }, err)
+            channel.nack(lastMessage, true)
+          } finally {
+            end()
+          }
+        }
+      } catch (err) {
+        countIncomingError(inputQueue, messages.length)
+        logger.error('getting_messages_failed', { messages, lastMessage }, err)
+        if (lastMessage) {
+          channel.nack(lastMessage, true)
+        }
+      }
+    }
+
     const channelWrapper = consumerConnection.createChannel({
       json: true,
-      setup: (channel: ConfirmChannel) => {
-        return Promise.all([
+      setup: async (channel: ConfirmChannel) => {
+        await Promise.all([
           channel.assertExchange(errorExchange, 'topic'),
           channel.assertQueue(errorQueue, { durable: true }),
           channel.assertExchange(inputExchange, inputExchangeType),
@@ -171,9 +220,9 @@ const wrapper = (configName: string): RabbitMQ => {
           }),
           channel.prefetch(prefetch),
           channel.bindQueue(inputQueue, inputExchange, pattern),
-          channel.bindQueue(errorQueue, errorExchange, inputQueue),
-          channel.consume(inputQueue, onMessage)
+          channel.bindQueue(errorQueue, errorExchange, inputQueue)
         ])
+        return batchQuantity ? getMessages(batchQuantity, channel) : channel.consume(inputQueue, onMessage)
       }
     })
 
