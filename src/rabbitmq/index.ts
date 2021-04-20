@@ -163,15 +163,15 @@ const wrapper = (configName: string): RabbitMQ => {
       channel: ConfirmChannel
     ) => {
       const messages: any[] = []
-      let result
+      let result: GetMessage | false = false
       let lastMessage: GetMessage | undefined
       try {
         do {
           result = await channel.get(inputQueue, { noAck: false })
           if (result) {
-            countIncomingMessage(inputQueue, (result as GetMessage).properties)
-            messages.push((result as GetMessage).content.toString())
             lastMessage = result as GetMessage
+            countIncomingMessage(inputQueue, lastMessage.properties)
+            messages.push(lastMessage.content.toString())
           }
         } while (--quantity && result)
 
