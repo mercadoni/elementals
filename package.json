@@ -28,6 +28,7 @@
   "dependencies": {
     "@aws-crypto/client-node": "^1.7.0",
     "@types/amqp-connection-manager": "^2.0.10",
+    "@types/cron": "^1.7.2",
     "@types/flat": "^5.0.1",
     "@types/lodash": "^4.14.168",
     "@types/logfmt": "^1.2.1",

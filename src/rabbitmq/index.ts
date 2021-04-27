@@ -3,6 +3,7 @@ import { ConfirmChannel, ConsumeMessage, Options, MessageProperties, GetMessage 
 import { Counter, Histogram } from 'prom-client'
 import Logger from '../logger'
 import config from '../config'
+import { CronJob } from 'cron'
 
 const logger = Logger('rabbitmq')
 
@@ -74,6 +75,11 @@ const processingDuration = new Histogram({
 
 type MessageProcessor = (eventData: any, message: ConsumeMessage) => Promise<any>
 
+export interface CronBatchConfig {
+  messageQuantity: number;
+  cronParameters: string;
+}
+
 export interface ChannelConfig {
   inputExchange: string,
   inputExchangeType?: string,
@@ -81,7 +87,7 @@ export interface ChannelConfig {
   pattern: string,
   errorExchange: string,
   prefetch?: number,
-  batchQuantity?: number,
+  cronBatch?: CronBatchConfig,
   processor: MessageProcessor
 }
 
@@ -125,7 +131,7 @@ const wrapper = (configName: string): RabbitMQ => {
   const legacyPublisherChannel = publisherConnection.createChannel({ json: true })
 
   const addListener = (channelConfig: ChannelConfig) => {
-    const { inputExchange, inputQueue, pattern, errorExchange, batchQuantity } = channelConfig
+    const { inputExchange, inputQueue, pattern, errorExchange, cronBatch } = channelConfig
     initializeQueueMetrics(inputQueue)
     const inputExchangeType = channelConfig.inputExchangeType || 'topic'
     const errorQueue = `${inputQueue}_errors`
@@ -222,7 +228,14 @@ const wrapper = (configName: string): RabbitMQ => {
           channel.bindQueue(inputQueue, inputExchange, pattern),
           channel.bindQueue(errorQueue, errorExchange, inputQueue)
         ])
-        return batchQuantity ? getMessages(batchQuantity, channel) : channel.consume(inputQueue, onMessage)
+
+        if (cronBatch) {
+          new CronJob(cronBatch.cronParameters, () => {
+            getMessages(cronBatch.messageQuantity, channel)
+          }).start()
+        } else {
+          channel.consume(inputQueue, onMessage)
+        }
       }
     })
 
