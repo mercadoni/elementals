@@ -108,6 +108,7 @@ export interface RabbitMQ {
   topology: (f: amqp.SetupFunc) => Promise<void>,
   consumer: (queue: string, options: ConsumerOptions, processor: MessageProcessor) => void
   publisher: (exchange: string) => Publisher
+  closeConnection: () => Promise<void>
 }
 
 const newConnection = (conf: any): AmqpConnectionManager => {
@@ -351,12 +352,20 @@ const wrapper = (configName: string): RabbitMQ => {
     return topologyChannel.close()
   }
 
+  const closeConnection = async () => {
+    await Promise.all([
+      publisherConnection.close(),
+      consumerConnection.close()
+    ])
+  }
+
   return {
     addListener,
     publish,
     topology,
     consumer,
-    publisher
+    publisher,
+    closeConnection
   }
 }
 
