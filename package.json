@@ -26,14 +26,14 @@
     "test": "jest --coverage --logHeapUsage"
   },
   "dependencies": {
-    "@aws-crypto/client-node": "^1.7.0",
+    "@aws-crypto/client-node": "^1.9.0",
     "@types/amqp-connection-manager": "^2.0.10",
     "@types/cron": "^1.7.2",
     "@types/flat": "^5.0.1",
-    "@types/lodash": "^4.14.168",
+    "@types/lodash": "^4.14.170",
     "@types/logfmt": "^1.2.1",
     "@types/nconf": "^0.10.0",
-    "@types/node": "^13.13.48",
+    "@types/node": "^13.13.52",
     "@types/node-schedule": "^1.3.1",
     "@types/verror": "^1.10.4",
     "amqp-connection-manager": "^3.2.1",
@@ -51,19 +51,19 @@
     "prom-client": "^13.0.0"
   },
   "devDependencies": {
-    "@types/jest": "^26.0.22",
-    "@typescript-eslint/eslint-plugin": "^4.21.0",
-    "@typescript-eslint/parser": "^4.21.0",
-    "eslint": "^7.23.0",
-    "eslint-config-standard": "^16.0.2",
-    "eslint-plugin-import": "^2.22.1",
+    "@types/jest": "^26.0.23",
+    "@typescript-eslint/eslint-plugin": "^4.25.0",
+    "@typescript-eslint/parser": "^4.25.0",
+    "eslint": "^7.27.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.23.3",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^4.2.1",
-    "jest": "^26.6.3",
+    "eslint-plugin-promise": "^5.1.0",
+    "jest": "^27.0.1",
     "prom-client": "^13.1.0",
     "standardx": "^7.0.0",
-    "ts-jest": "^26.5.4",
-    "typescript": "^4.1.3"
+    "ts-jest": "^27.0.1",
+    "typescript": "^4.3.2"
   },
   "eslintConfig": {
     "env": {
