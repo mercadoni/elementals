@@ -95,7 +95,7 @@ interface ConsumerOptions extends Options.Consume {
   prefetch?: number
 }
 
-interface Publisher {
+export interface Publisher {
   publish: (routingKey: string, data: any, options?: Options.Publish) => Promise<void>
 }
 
